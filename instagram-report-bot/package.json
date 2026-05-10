@@ -1,7 +1,6 @@
 {
-  "name": "paid-assassin-report-bot",
+  "name": "instagram-report-bot",
   "version": "1.0.0",
-  "description": "Instagram Mass Report Tool",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
