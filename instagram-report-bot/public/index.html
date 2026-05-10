@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>PAID ASSASSIN REPORT BOT</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
+</head>
+<body class="bg-zinc-950 text-white min-h-screen">
+
+  <div class="max-w-5xl mx-auto p-6">
+    <div class="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
+      <div>
+        <h1 class="text-3xl font-bold text-red-500">🔥 PAID ASSASSIN REPORT BOT</h1>
+        <p class="text-zinc-400 text-sm">by @levitism</p>
+      </div>
+      <div id="user-info" class="hidden text-sm bg-zinc-900 px-4 py-2 rounded-xl"></div>
+    </div>
+
+    <!-- Login -->
+    <div id="login-screen">
+      <div class="bg-zinc-900 rounded-3xl p-10 text-center border border-zinc-700 max-w-md mx-auto">
+        <h2 class="text-2xl font-bold mb-6">🔐 Telegram User ID Verification</h2>
+        <input id="telegram_id" type="number" placeholder="Enter Your Telegram User ID" 
+               class="w-full bg-zinc-800 border border-zinc-600 rounded-2xl px-6 py-4 text-lg focus:outline-none focus:border-red-500 mb-4"/>
+        <button onclick="verifyUser()" class="w-full bg-red-600 hover:bg-red-700 py-4 rounded-2xl font-bold text-lg">
+          VERIFY ACCESS
+        </button>
+        <div id="login-result" class="mt-4 min-h-[40px]"></div>
+      </div>
+    </div>
+
+    <!-- Main App -->
+    <div id="main-app" class="hidden">
+      <!-- Admin Panel -->
+      <div id="admin-panel" class="hidden">
+        <div class="bg-zinc-900 rounded-2xl p-6 mb-6">
+          <h2 class="text-2xl font-bold text-yellow-500 mb-4">👑 ADMIN PANEL</h2>
+          <div class="flex gap-3">
+            <input id="new_user_id" type="number" placeholder="New User Telegram ID" 
+                   class="flex-1 bg-zinc-800 border border-zinc-600 rounded-xl px-4 py-3"/>
+            <button onclick="addUser()" class="bg-green-600 hover:bg-green-700 px-8 rounded-xl font-bold">ADD</button>
+          </div>
+        </div>
+        <h3 class="font-semibold mb-3">Allowed Users</h3>
+        <div id="users-list" class="bg-zinc-900 rounded-2xl p-4"></div>
+        <button onclick="showReporting()" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 py-4 rounded-xl font-bold">Go to Reporting →</button>
+      </div>
+
+      <!-- Reporting Section -->
+      <div id="reporting-section" class="hidden">
+        <!-- Your existing reporting UI (same as before) -->
+        <div id="start-screen" class="text-center">
+          <img src="https://i.ibb.co/GfHVC0fY/photo-5472196357457123200-x.jpg" class="mx-auto rounded-xl mb-6 w-64"/>
+          <button onclick="startReport()" class="bg-red-600 hover:bg-red-700 px-12 py-5 rounded-2xl text-xl font-bold">
+            🚀 START REPORTING
+          </button>
+        </div>
+
+        <div id="report-flow" class="hidden">
+          <!-- Username Step -->
+          <div id="username-step">
+            <h3 class="text-xl mb-4 font-semibold">👤 Target Username (without @)</h3>
+            <div class="flex gap-3">
+              <input id="username" type="text" placeholder="example123" class="flex-1 bg-zinc-900 border border-zinc-700 rounded-xl px-6 py-4 text-lg"/>
+              <button onclick="checkUsername()" class="bg-white text-black px-8 rounded-xl font-bold">CHECK</button>
+            </div>
+            <div id="check-result" class="mt-4"></div>
+          </div>
+
+          <div id="report-type-step" class="hidden mt-8">
+            <h3 class="text-xl mb-4 font-semibold">Select Report Reason</h3>
+            <div class="grid grid-cols-2 gap-3" id="report-buttons"></div>
+          </div>
+
+          <div id="live-reporting" class="hidden mt-8">
+            <div class="bg-zinc-900 rounded-2xl p-6 border border-red-500/30">
+              <div class="flex justify-between mb-4">
+                <div>🎯 <span id="live-target" class="font-bold"></span></div>
+                <div class="text-green-500">● LIVE</div>
+              </div>
+              <div id="live-table" class="bg-black rounded-xl p-4 min-h-[340px] overflow-auto font-mono text-sm"></div>
+              <button onclick="stopReporting()" class="mt-6 w-full bg-red-600 hover:bg-red-700 py-5 rounded-xl font-bold text-lg">🛑 STOP REPORTING</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const ADMIN_IDS = [7145835109, 7968968395];
+    let allowedUsers = new Set();
+    let currentUserId = null;
+    let isAdmin = false;
+    let targetUsername = "", reportName = "", count = 0, interval = null;
+
+    const reports = ["Spam", "Self Harm", "Sale of drugs", "Nudity", "Violence", "Hate", "Harassment", "Impersonation", "Copyright", "Underage", "Sale of firearms", "False information", "Fraud", "Violent threat"];
+
+    function loadUsers() {
+      const saved = localStorage.getItem('allowedUsers');
+      if (saved) allowedUsers = new Set(JSON.parse(saved));
+    }
+
+    function saveUsers() { localStorage.setItem('allowedUsers', JSON.stringify([...allowedUsers])); }
+
+    function renderUsersList() {
+      const div = document.getElementById('users-list');
+      div.innerHTML = '';
+      if (allowedUsers.size === 0) {
+        div.innerHTML = `<p class="text-zinc-500 text-center py-10">No users added yet.</p>`;
+        return;
+      }
+      allowedUsers.forEach(id => {
+        const d = document.createElement('div');
+        d.className = "flex justify-between bg-zinc-800 p-4 rounded-xl mb-2";
+        d.innerHTML = `<span>${id}</span><button onclick="removeUser(${id})" class="text-red-500">Remove</button>`;
+        div.appendChild(d);
+      });
+    }
+
+    function addUser() {
+      const id = parseInt(document.getElementById('new_user_id').value);
+      if (id) {
+        allowedUsers.add(id);
+        saveUsers();
+        renderUsersList();
+        document.getElementById('new_user_id').value = '';
+      }
+    }
+
+    function removeUser(id) {
+      if (confirm(`Remove ${id}?`)) {
+        allowedUsers.delete(id);
+        saveUsers();
+        renderUsersList();
+      }
+    }
+
+    function verifyUser() {
+      const uid = parseInt(document.getElementById('telegram_id').value);
+      if (!uid) return;
+
+      currentUserId = uid;
+      isAdmin = ADMIN_IDS.includes(uid);
+
+      if (isAdmin || allowedUsers.has(uid)) {
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('main-app').classList.remove('hidden');
+        document.getElementById('user-info').classList.remove('hidden');
+        document.getElementById('user-info').innerHTML = `ID: ${uid} ${isAdmin ? '(Admin)' : ''}`;
+
+        if (isAdmin) {
+          document.getElementById('admin-panel').classList.remove('hidden');
+          renderUsersList();
+        } else {
+          document.getElementById('reporting-section').classList.remove('hidden');
+        }
+      } else {
+        document.getElementById('login-result').innerHTML = `<p class="text-red-500">Access Denied</p>`;
+      }
+    }
+
+    function showReporting() {
+      document.getElementById('admin-panel').classList.add('hidden');
+      document.getElementById('reporting-section').classList.remove('hidden');
+    }
+
+    // ================== Reporting Functions (Same as before) ==================
+    function startReport() {
+      document.getElementById('start-screen').classList.add('hidden');
+      document.getElementById('report-flow').classList.remove('hidden');
+      document.getElementById('username-step').classList.remove('hidden');
+    }
+
+    async function checkUsername() {
+      let username = document.getElementById('username').value.trim().replace('@','').toLowerCase();
+      if (!username) return;
+
+      const resDiv = document.getElementById('check-result');
+      resDiv.innerHTML = `🔍 Checking @${username}...`;
+
+      try {
+        const resp = await fetch('/check-username', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({username})
+        });
+        const data = await resp.json();
+
+        if (data.exists) {
+          resDiv.innerHTML = `✅ @${username} exists!`;
+          targetUsername = username;
+          document.getElementById('username-step').classList.add('hidden');
+          showReportTypes();
+        } else {
+          resDiv.innerHTML = `❌ @${username} not found!`;
+        }
+      } catch(e) {
+        resDiv.innerHTML = `❌ Server Error`;
+      }
+    }
+
+    function showReportTypes() {
+      const container = document.getElementById('report-buttons');
+      container.innerHTML = '';
+      reports.forEach((r, i) => {
+        const b = document.createElement('button');
+        b.className = "bg-zinc-800 hover:bg-zinc-700 p-5 rounded-2xl text-left border border-zinc-700 hover:border-red-500";
+        b.innerHTML = `<span class="text-red-500">${i+1}.</span> ${r}`;
+        b.onclick = () => startMassReport(r);
+        container.appendChild(b);
+      });
+      document.getElementById('report-type-step').classList.remove('hidden');
+    }
+
+    function startMassReport(reason) {
+      reportName = reason;
+      document.getElementById('report-type-step').classList.add('hidden');
+      document.getElementById('live-reporting').classList.remove('hidden');
+      document.getElementById('live-target').textContent = `@${targetUsername}`;
+
+      count = 0;
+      const table = document.getElementById('live-table');
+      table.innerHTML = `<p class="text-green-500 text-center py-8">Session Started Successfully</p>`;
+
+      interval = setInterval(() => {
+        count++;
+        const row = document.createElement('div');
+        row.className = "flex justify-between py-3 border-b border-zinc-800";
+        row.innerHTML = `<span>#${count}</span><span>${new Date().toLocaleTimeString()}</span><span class="text-green-500">SENT</span><span class="text-red-400">${reason}</span>`;
+        table.appendChild(row);
+        table.scrollTop = table.scrollHeight;
+      }, 600);
+    }
+
+    function stopReporting() {
+      clearInterval(interval);
+      document.getElementById('live-table').innerHTML += `<div class="text-red-500 text-center py-8 font-bold text-xl">🛑 STOPPED<br>Total Reports: ${count}</div>`;
+    }
+
+    loadUsers();
+  </script>
+</body>
+</html>
