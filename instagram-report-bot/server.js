@@ -13,53 +13,72 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
+// ================== EXACT CHECK FROM YOUR PYTHON FILE ==================
 app.post('/check-username', async (req, res) => {
-    const { username } = req.body;
+    let { username } = req.body;
     if (!username) return res.json({ exists: false });
 
-    const clean = username.trim().toLowerCase();
+    username = username.trim().toLowerCase().replace('@', '');
+    console.log(`Checking: ${username}`);
 
     try {
-        const device_id = uuidv4();
-        const family_device_id = uuidv4();
-        const android_device_id = "android-" + Math.random().toString(36).substring(2,12);
+        const device = uuidv4();
+        const family = uuidv4();
+        const android = "android-" + Math.random().toString(36).substring(2, 12);
 
         const payload = {
-            params: JSON.stringify({
-                client_input_params: {
-                    aac: JSON.stringify({
-                        aac_init_timestamp: Math.floor(Date.now()/1000),
-                        aacjid: uuidv4(),
-                        aaccs: Math.random().toString(36).substring(2)
-                    }),
-                    search_query: clean,
-                    search_screen_type: "email_or_username"
-                },
-                server_params: {
-                    event_request_id: uuidv4(),
-                    device_id: android_device_id,
-                    family_device_id: family_device_id
-                }
-            }),
-            bk_client_context: JSON.stringify({
-                bloks_version: "5e47baf35c5a270b44c8906c8b99063564b30ef69779f3dee0b828bee2e4ef5b",
-                styles_id: "instagram"
-            }),
-            bloks_versioning_id: "5e47baf35c5a270b44c8906c8b99063564b30ef69779f3dee0b828bee2e4ef5b"
+            params: `{"client_input_params":{"aac":"{\\"aac_init_timestamp\\":${Math.floor(Date.now()/1000)},\\"aacjid\\":\\"${uuidv4()}\\",\\"aaccs\\":\\"${Math.random().toString(36).substring(2, 40)}\\"}","search_query":"${username}","search_screen_type":"email_or_username","ig_android_qe_device_id":"${device}"},"server_params":{"event_request_id":"${uuidv4()}","device_id":"${android}","family_device_id":"${family}","qe_device_id":"${device}"}}`,
+            'bk_client_context': '{"bloks_version":"5e47baf35c5a270b44c8906c8b99063564b30ef69779f3dee0b828bee2e4ef5b","styles_id":"instagram"}',
+            'bloks_versioning_id': "5e47baf35c5a270b44c8906c8b99063564b30ef69779f3dee0b828bee2e4ef5b"
         };
 
         const headers = {
-            'User-Agent': 'Instagram 370.1.0.43.96 Android',
-            'x-ig-app-id': '567067343352427',
+            'User-Agent': "Instagram 370.1.0.43.96 Android (34/14; 450dpi; 1080x2207; samsung; SM-A235F; a23; qcom; en_IN; 704872281)",
+            'accept-language': "en-IN, en-US",
+            'x-ig-app-id': "567067343352427",
+            'x-ig-device-id': device,
+            'x-ig-family-device-id': family,
+            'x-ig-android-id': android,
+            'x-mid': Buffer.from(Math.random().toString(36).substring(2, 20)).toString('base64').replace(/=/g, ''),
         };
 
-        await axios.post('https://i.instagram.com/api/v1/bloks/async_action/com.bloks.www.caa.ar.search.async/', payload, { headers });
-        // If no error, assume exists for now (simplified)
-        return res.json({ exists: true });
-    } catch (e) {}
+        const response = await axios.post(
+            "https://i.instagram.com/api/v1/bloks/async_action/com.bloks.www.caa.ar.search.async/",
+            payload,
+            { headers, timeout: 15000 }
+        );
 
+        const text = response.data.toString().toLowerCase();
+
+        if (text.includes(`"${username}"`) && !text.includes('"not_found"') && !text.includes('no_results')) {
+            console.log(`✅ ${username} → EXISTS`);
+            return res.json({ exists: true, username });
+        } else {
+            console.log(`❌ ${username} → Does NOT Exist`);
+            return res.json({ exists: false });
+        }
+
+    } catch (error) {
+        console.log("Error in check:", error.message);
+        
+        // Fallback
+        try {
+            const { data } = await axios.get(`https://www.instagram.com/${username}/`, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' },
+                timeout: 10000
+            });
+            if (data.includes(`"username":"${username}"`)) {
+                console.log(`✅ ${username} → EXISTS (Fallback)`);
+                return res.json({ exists: true, username });
+            }
+        } catch (e) {}
+    }
+
+    console.log(`❌ ${username} → Does NOT Exist`);
     res.json({ exists: false });
 });
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`Server running on ${PORT}`));
+app.listen(PORT, () => {
+    console.log(`🚀 Server running on http://localhost:${PORT}`);
+});
